@@ -56,3 +56,14 @@ model.fit(
   data=batch_sampler,
   epochs = 100,
   opt=opt)
+
+
+angles = model.project(features)
+radius = np.sqrt(np.diag(features.dot(features.T)))
+radius /= np.std(radius)
+
+x = (radius * np.cos(angles)).reshape(-1)
+y = (radius * np.sin(angles)).reshape(-1)
+
+plt.scatter(x[0:50], y[0:50])
+plt.show()
