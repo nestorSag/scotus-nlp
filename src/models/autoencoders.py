@@ -162,6 +162,7 @@ class AngularAutoencoder(Autoencoder):
     self.ciclicity_weight = ciclicity_weight
     self.closeness_loss = []
     self.loss_function = nn.L1Loss()
+    self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
   def to_angle(self, x: torch.Tensor) -> torch.Tensor:
     """Maps input to an angle between 0 and 2*pi
@@ -245,19 +246,19 @@ class AngularAutoencoder(Autoencoder):
     cyclic_right_end = 2*np.pi*torch.ones((batch_size,1))
     cyclic_left_end = torch.zeros((batch_size,1))
 
-    random_right_end = torch.cat((random_angles,cyclic_right_end),1)
-    random_left_end = torch.cat((random_angles,cyclic_left_end),1)
+    random_right_end = torch.cat((random_angles,cyclic_right_end),1).to(self.device)
+    random_left_end = torch.cat((random_angles,cyclic_left_end),1).to(self.device)
 
     # randomly decide which end is chasing the other end
     head = np.random.uniform(size=1) > 0.5 
     if head:
       with torch.no_grad():
-        r1 = self.decoder.forward(torch.Tensor(random_right_end))
-      r0 =  self.decoder.forward(torch.Tensor(random_left_end))
+        r1 = self.decoder.forward(random_right_end)
+      r0 =  self.decoder.forward(random_left_end)
     else:
       with torch.no_grad():
-        r0 = self.decoder.forward(torch.Tensor(random_right_end))
-      r1 = self.decoder.forward(torch.Tensor(random_left_end))
+        r0 = self.decoder.forward(random_right_end)
+      r1 = self.decoder.forward(random_left_end)
     ##########
     
     return self.loss_function(r0, r1)
@@ -296,17 +297,22 @@ class AngularAutoencoder(Autoencoder):
         epochs (int): Number of epochs
       
       """
+      self.encoder.to(self.device)
+      self.decoder.to(self.device)
 
       self.train()
       for k in range(epochs):
         for batch_id, batch in enumerate(data):
-          preprocessed_batch = self.cartesian_to_polar(batch)
+          preprocessed_batch = self.cartesian_to_polar(batch).to(self.device)
           opt.zero_grad()
           s1 = self.loss(preprocessed_batch)
           s1.backward()
           opt.step()
 
-          loss = s1.detach().numpy()
+          loss = (s1
+            .detach()
+            .cpu()
+            .numpy())
           if batch_id%50 == 0:
             logger.info(f"Loss: {loss}, epoch: {k}, batch: {batch_id}")
           self.loss_trace.append(loss)
@@ -322,7 +328,7 @@ class AngularAutoencoder(Autoencoder):
     """
     if len(x.shape) == 1:
       x = x.reshape(1,-1)
-    x = torch.from_numpy(x)
+    x = torch.from_numpy(x).to(self.device)
     self.eval()
     with torch.no_grad():
-      return self.to_angle(self.encoder.forward(self.cartesian_to_polar(x))).numpy()
+      return self.to_angle(self.encoder.forward(self.cartesian_to_polar(x))).cpu().numpy()
