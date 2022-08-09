@@ -1,4 +1,0 @@
-[data]
-folder = "data" # storage folder
-scrape_from = 1970 # year at which scrapping starts
-scrape_to = 2021 # year at which scrapping ends

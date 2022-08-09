@@ -3,7 +3,7 @@ import typing as t
 from pathlib import Path
 from multiprocessing import Pool
 
-from src.data_loaders import get_clean_transcripts
+from src.corpus import get_clean_transcripts
 
 import numpy as np
 
