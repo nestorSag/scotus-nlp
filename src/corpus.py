@@ -9,8 +9,6 @@ from multiprocessing import Pool
 from abc import abstractclassmethod, abstractmethod, ABC
 
 
-from src.config import get_config
-
 import requests
 from bs4 import BeautifulSoup
 
@@ -205,11 +203,13 @@ class FindLawOpinions(DataRetriever):
       logger.exception(f"Unexpected table format in {source}")
       return []
       
-    self.metadata_dfs.append(df)
     urls = [urljoin(self.base_url, anchor["href"]) for anchor in main_table.find_all("a")]
     if len(urls) != len(df):
       logger.exception(f"Number of retrieved URLs is smaller than main table length in {source}")
-
+      df["url"] = None
+    else:
+      df["url"] = urls
+    self.metadata_dfs.append(df)
     return urls
 
   def retrieve_urls(self) -> t.List[str]:
@@ -222,7 +222,7 @@ class FindLawOpinions(DataRetriever):
     years = self.retrieve_yearly_urls()
     urls = []
     for year in years:
-      time.sleep(1)
+      time.sleep(0.25)
       year_urls = self.scrape_urls(year)
       logger.info(f"Fetched {len(year_urls)} urls from {year}")
       urls.extend(year_urls)
@@ -246,14 +246,14 @@ class FindLawOpinions(DataRetriever):
   def set_up(self, folder):
     super().set_up(folder)
     # load current metadata file if it exists
-    metadata_path = self.metadata_folder / "case_metatada.csv"
+    metadata_path = self.metadata_folder / "case_metadata.csv"
     if metadata_path.is_file():
       self.metadata_dfs = [pd.read_csv(metadata_path)]
 
   def wrap_up(self, folder):
     # save metadata
     metadata_df = pd.concat(self.metadata_dfs).drop_duplicates()
-    metadata_df.to_csv(self.metadata_folder / "case_metatada.csv", index=False)
+    metadata_df.to_csv(self.metadata_folder / "case_metadata.csv", index=False)
   
 
 
@@ -330,10 +330,6 @@ class Loader:
     Returns:
         Path: retrieved data'sq folder path
     """
-    def url_to_filename(url):
-      return url.replace("/", "|")
-    def filename_to_url(filename):
-      return filename.replace("|", "/")
 
     if source_and_type not in cls.types:
       raise ValueError(f"Valid source_and_type options are {cls.valid_types}")
@@ -342,7 +338,7 @@ class Loader:
     if not folder.is_dir():
       folder.mkdir(exist_ok=True, parents=True)
 
-    downloaded = set([filename_to_url(file.stem) for file in cls.get_local_files(folder)])
+    downloaded = set([self.filename_to_url(file.name) for file in cls.get_local_files(folder)])
 
     retriever = cls.types[source_and_type]()
     retriever.set_up(folder)
@@ -354,7 +350,7 @@ class Loader:
       for k, url in enumerate(urls):
         try:
           document = retriever.fetch_text(url)
-          file_path = folder / f"{url_to_filename(url)}.txt"
+          file_path = folder / f"{self.url_to_filename(url)}"
           with open(file_path, "w") as doc:
             doc.write(document)
           logger.info(f"saved text from {url}")
@@ -400,6 +396,14 @@ class Loader:
         t.List[Path]: list of Path objects
     """    
     return [obj for obj in folder.iterdir() if obj.is_file()]
+
+  @classmethod
+  def url_to_filename(cls, url: str) -> str:
+      return url.replace("/", "|") + ".txt"
+
+  @classmethod
+  def filename_to_url(cls, filename: str) -> str:
+    return re.sub(r"\.txt$", "", filename.replace("|", "/"))
 
 
 
