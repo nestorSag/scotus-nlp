@@ -1,3 +1,4 @@
+import re
 import time
 import shutil
 import logging
@@ -311,7 +312,7 @@ class Loader:
   types = {
     "www.supremecourt.gov:oral-arguments": ScotusTranscripts,
     "www.supremecourt.gov:opinions": ScotusOpinions,
-    "caselaw.findlaw.com:opinons": FindLawOpinions
+    "caselaw.findlaw.com:opinions": FindLawOpinions
   }
 
   @classproperty
@@ -338,7 +339,7 @@ class Loader:
     if not folder.is_dir():
       folder.mkdir(exist_ok=True, parents=True)
 
-    downloaded = set([self.filename_to_url(file.name) for file in cls.get_local_files(folder)])
+    downloaded = set([cls.filename_to_url(file.name) for file in cls.get_local_files(folder)])
 
     retriever = cls.types[source_and_type]()
     retriever.set_up(folder)
@@ -350,7 +351,7 @@ class Loader:
       for k, url in enumerate(urls):
         try:
           document = retriever.fetch_text(url)
-          file_path = folder / f"{self.url_to_filename(url)}"
+          file_path = folder / f"{cls.url_to_filename(url)}"
           with open(file_path, "w") as doc:
             doc.write(document)
           logger.info(f"saved text from {url}")
@@ -378,8 +379,13 @@ class Loader:
         str: text corpus
     """
     corpus = []
-    path = cls.download(source_and_type)
-    files = cls.get_local_files()
+    path = Path(DATA_FOLDER) / source_and_type
+    files = cls.get_local_files(path)
+    if len(files) == 0:
+      logger.info(f"No data found. Downloading; this may take a while.")
+      cls.download(source_and_type)
+      files = cls.get_local_files(path)
+    logger.info(f"Loading {len(files)} files from {path}")
     for file in files:
       with open(file, "r") as doc:
         corpus.append(doc.read())
@@ -394,8 +400,11 @@ class Loader:
 
     Returns:
         t.List[Path]: list of Path objects
-    """    
-    return [obj for obj in folder.iterdir() if obj.is_file()]
+    """ 
+    if folder.is_dir():   
+      return [obj for obj in folder.iterdir() if obj.is_file()]
+    else:
+      return []
 
   @classmethod
   def url_to_filename(cls, url: str) -> str:
@@ -406,7 +415,16 @@ class Loader:
     return re.sub(r"\.txt$", "", filename.replace("|", "/"))
 
 
+class Opinions:
+  source_and_type = "caselaw.findlaw.com:opinions"
 
+  @classmethod
+  def download(cls) -> Path:
+    return Loader.download(cls.source_and_type)
+
+  @classmethod
+  def load(cls) -> Path:
+    return Loader.load(cls.source_and_type)
 
 
 
