@@ -8,7 +8,7 @@ import re
 corpus = op_loader.load()
 min_paragraph_length = 250
 min_n_paragraphs = 5
-corpus, labels, hashes = op_parser.parse(corpus, min_paragraph_length, min_n_paragraphs)
+corpus, labels = op_parser.parse(corpus, min_paragraph_length, min_n_paragraphs)
 
 # corpus, labels = op_parser.extract_text(corpus, min_paragraph_length, min_n_paragraphs)
 # corpus, full_citations = PatternHasher.hash_full_citations(corpus)

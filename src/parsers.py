@@ -34,22 +34,31 @@ class Opinions:
         logger.info("Parsing HTML content")
         corpus, labels = cls.extract_text(raw_corpus, min_paragraph_length, min_n_paragraphs)
         # hash full citations
-        logger.info("Hashing citations")
-        corpus, full_citations = PatternHasher.hash_full_citations(corpus)
+        # logger.info("Hashing citations")
+        # corpus, full_citations = PatternHasher.hash_full_citations(corpus)
         logger.info("removing unnecessary strings")
+        # remove full citations
+        full_citations = f"{PatternHasher.case_name_rgx}{PatternHasher.citation_vol_rep_rgx}{PatternHasher.citation_suffix_rgx}"
+        corpus = [re.sub(full_citations, "CITATIONTOKEN", p) for p in corpus]
+        # remove case names
+        case_names = PatternHasher.case_name_rgx
+        corpus = [re.sub(case_names, "CITATIONTOKEN", p) for p in corpus]
         # remove short citations
         short_citation_rgx = f"{PatternHasher.citation_vol_rep_rgx}{PatternHasher.citation_suffix_rgx}"
-        corpus = [re.sub(short_citation_rgx, "", p) for p in corpus]
-        # replace numbers by token
-        corpus = [re.sub(r" \d+", " NUMTOKEN", p) for p in corpus]
+        corpus = [re.sub(short_citation_rgx, "CITATIONTOKEN", p) for p in corpus]
+        # replace numbers by special token
+        number_words = re.compile(r"([^\w])\d+")
+        corpus = [number_words.sub(r"\1NUMTOKEN", p) for p in corpus]
         # remove square brackets 
         corpus = [re.sub(r"\[|\]", "", p) for p in corpus]
+        # remove length 1 abbreviations
+        corpus = [re.sub(r"\b[A-Z]\.", "", p) for p in corpus]
         # remove content in parenthesis
         rgx = re.compile(r"\([^)]*\)")
         corpus = [re.sub(rgx, "", p) for p in corpus]
         # corpus, entities = PatternHasher.hash_entities(corpus)
-        hashes = dict((v, k) for k, v in full_citations.items()) # | dict((v, k) for k, v in short_citations.items()) | dict((v, k) for k, v in entities.items())
-        return corpus, labels, hashes
+        # hashes = dict((v, k) for k, v in full_citations.items()) # | dict((v, k) for k, v in short_citations.items()) | dict((v, k) for k, v in entities.items())
+        return corpus, labels# , hashes
 
 class PatternHasher:
     proper_name_rgx = r"(?:[A-Z][a-z'.]+(?: of the | of |, | & | \d+| and | )?)+"

@@ -387,7 +387,7 @@ class Loader:
       files = cls.get_local_files(path)
     logger.info(f"Loading {len(files)} files from {path}")
     for file in files:
-      with open(file, "r") as doc:
+      with open(file, "r" , encoding='ascii', errors='ignore') as doc:
         corpus.append(doc.read())
     return corpus
 
